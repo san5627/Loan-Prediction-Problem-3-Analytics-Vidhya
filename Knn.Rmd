@@ -1,0 +1,182 @@
+---
+title: "kNN"
+author: "SANDIPAN PAUL"
+date: "27 January 2018"
+output: html_document
+---
+
+```{r}
+#Train dataset
+dataset.train <- read.csv("file:///G:/College/COMPETITION/Analytics Vidhaya/practice-problem-loan-prediction-iii/train.csv", header = TRUE, stringsAsFactors = FALSE)
+
+#Output variable is Loan_Status and it is categorical YES/NO
+#Supervised learning
+
+#Top 6 rows
+head(dataset.train)
+
+#Test dataset
+dataset.test <- read.csv("file:///G:/College/COMPETITION/Analytics Vidhaya/practice-problem-loan-prediction-iii/test.csv", header = TRUE, stringsAsFactors = FALSE)
+head(dataset.test)
+
+dataset.test.test <- read.csv("file:///G:/College/COMPETITION/Analytics Vidhaya/practice-problem-loan-prediction-iii/test.csv", header = TRUE, stringsAsFactors = FALSE)
+head(dataset.test)
+
+#Combine two dataset. But in test data there will be no target column.
+dataset.train$IsTrainData = TRUE
+dataset.test$Loan_Status = NA
+dataset.test$IsTrainData = FALSE
+
+
+#Now combine two dataset
+dataset.full = rbind(dataset.train,dataset.test)
+
+#Now we will check for NA values
+str(dataset.full)
+#Total 981 observations
+
+#Loan_ID 
+str(as.factor(dataset.full$Loan_ID))
+#Factor w/ 981 levels with no NA values. But it is of no use. Different values
+
+table(dataset.full$Gender)
+dataset.full[dataset.full$Gender== "", "Gender"]<- "Male"
+table(is.na(dataset.full$Gender))
+#dataset.full$Gender <- as.factor(dataset.full$Gender)
+dataset.full$Gender = factor(dataset.full$Gender,
+                             levels = c("Male","Female"),
+                             labels = c("1","0"))
+table(dataset.full$Gender)
+dataset.full$Gender <- as.numeric(dataset.full$Gender)
+table(is.na(dataset.full$Gender))
+
+
+table(is.na(dataset.full$Married))
+dataset.full[dataset.full$Married == "", "Married"] <- "Yes"
+table(dataset.full$Married)
+dataset.full$Married = factor(dataset.full$Married,
+                              levels = c("Yes","No"),
+                              labels = c("1","0"))
+table(dataset.full$Married)
+dataset.full$Married<- as.numeric(dataset.full$Married)
+table(is.na(dataset.full$Married))
+
+
+table(is.na(dataset.full$Dependents))
+dataset.full[dataset.full$Dependents == "","Dependents"] <- "0"
+table(dataset.full$Dependents)
+dataset.full$Dependents <- as.numeric(dataset.full$Dependents)
+table(is.na(dataset.full$Dependents))
+
+
+table(dataset.full$Education)
+dataset.full$Education = factor(dataset.full$Education,
+                              levels = c("Graduate","Not Graduate"),
+                              labels = c("1","0"))
+table(dataset.full$Education)
+dataset.full$Education <- as.numeric(dataset.full$Education)
+
+
+table(dataset.full$Self_Employed)
+dataset.full[dataset.full$Self_Employed == "", "Self_Employed"] <- "No"
+dataset.full$Self_Employed = factor(dataset.full$Self_Employed,
+                              levels = c("Yes","No"),
+                              labels = c("1","0"))
+dataset.full$Self_Employed = as.numeric(dataset.full$Self_Employed)
+table(dataset.full$Self_Employed)
+
+x<- as.factor(dataset.full$ApplicantIncome)
+str(x)
+#Feature Scaling
+range(dataset.full$ApplicantIncome)
+dataset.full[,7] = scale(dataset.full[,7])
+#Factor w/ 752 levels so no use
+
+y <- as.factor(dataset.full$CoapplicantIncome)
+str(y)
+range(dataset.full$CoapplicantIncome)
+#Factor w/ 437 level so no use
+dataset.full[,8] = scale(dataset.full[,8])
+
+
+table(is.na(dataset.full$LoanAmount))
+boxplot.stats(dataset.full$LoanAmount)
+dataset.full[is.na(dataset.full$LoanAmount), "LoanAmount"] = 128
+table(is.na(dataset.full$LoanAmount))
+range(dataset.full$LoanAmount)
+dataset.full[,9] = scale(dataset.full[,9])
+
+
+table(dataset.full$Loan_Amount_Term)
+table(is.na(dataset.full$Loan_Amount_Term))
+summary(dataset.full$Loan_Amount_Term)
+dataset.full[is.na(dataset.full$Loan_Amount_Term), "Loan_Amount_Term"] = 360
+#dataset.full$Loan_Amount_Term <- as.factor(dataset.full$Loan_Amount_Term)
+range(dataset.full$Loan_Amount_Term)
+dataset.full[,10] = scale(dataset.full[,10])
+
+
+table(dataset.full$Credit_History)
+table(is.na(dataset.full$Credit_History))
+dataset.full[is.na(dataset.full$Credit_History),"Credit_History"] = 1
+table(is.na(dataset.full$Credit_History))
+dataset.full$Credit_History <- as.numeric(dataset.full$Credit_History)
+table(is.na(dataset.full$Credit_History))
+
+table(dataset.full$Property_Area)
+table(is.na(dataset.full$Property_Area))
+dataset.full$Property_Area = factor(dataset.full$Property_Area,
+                                    levels = c("Rural","Semiurban","Urban"),  
+                                    labels = c("1","0","2"))
+dataset.full$Property_Area <- as.numeric(dataset.full$Property_Area)
+table(is.na(dataset.full$Property_Area))
+
+
+# dataset.full$Loan_Status = factor(dataset.full$Loan_Status,
+#                                   levels = c("Y","N"),
+#                                   labels = c("0","1"))
+#dataset.full$Loan_Status <- as.numeric(dataset.full$Loan_Status)
+str(dataset.full)
+
+
+#Divide them back into training set and test set
+dataset.train <- dataset.full[dataset.full$IsTrainData == "TRUE",]
+str(dataset.train)
+table(is.na(dataset.train))
+head(dataset.train)
+
+dataset.test <- dataset.full[dataset.full$IsTrainData == "FALSE",]
+head(dataset.test)
+
+dataset.train<- dataset.train[-c(1,4,14)]
+head(dataset.train)
+table(is.na(dataset.train))
+dataset.test <- dataset.test[-c(1,4,13,14)]
+head(dataset.test)
+str(dataset.train)
+
+
+set.seed(6)
+wcss <- vector() #WCSS within cluster sum of square
+for (i in 1:10) {
+  wcss[i] <- sum(kmeans(dataset.test,i)$withinss) #F1 kmeans() withinss cluster sum of squares, one component per cluster. Find the different value of WCSS for 10 different value of i
+}
+plot(x = 1:10, 
+     wcss,
+     type ="b", #"p" for points,"l" for lines,"b" for both
+     main = "cluster of client",
+     xlab = "Number of cluster",
+     ylab = "WCSS")
+
+library(class)
+pred = knn(train = dataset.train[,-11],
+           test = dataset.test,
+           cl = dataset.train[,11],
+           k = 5)
+
+Loan_ID = dataset.test.test$Loan_ID
+output.df<- as.data.frame(Loan_ID)
+output.df$Loan_Status <- pred
+head(output.df)
+write.csv(output.df, "file:///G:/College/COMPETITION/Analytics Vidhaya/practice-problem-loan-prediction-iii/Submission2Knn5.csv", row.names = FALSE)
+```
